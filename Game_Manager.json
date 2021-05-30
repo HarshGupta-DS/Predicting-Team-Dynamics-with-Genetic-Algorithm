@@ -1,0 +1,182 @@
+using JetBrains.Annotations;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class GameManager : MonoBehaviour
+{
+    public const int LifeCost = 1;
+    public const int FoodValue = 2;
+    public const int ReproductionCost = 2;
+    public const float TimeTillPawnReachesFood = 1;
+ 
+ 
+    public GameObject PawnPrefab;
+    public GameObject FoodPrefab;
+ 
+    public int PawnsToSpawn;
+    public int FoodToSpawn;
+    public int Rounds;
+    public int Seed;
+    public float CircleRadius = 50;
+ 
+    List<FoodScript> FoodSpawned = new List<FoodScript>();
+    List<PawnBehaviour> PawnsSpawned = new List<PawnBehaviour>();
+ 
+    List<RoundEndData> RoundDatas = new List<RoundEndData>();
+    List<PawnBehaviour> DeadPawns = new List<PawnBehaviour>();
+    public static GameManager Instance;
+    System.Random GameRandom;
+ 
+    private void Awake()
+    {
+        Debug.Log(Quaternion.AngleAxis(10, Vector3.forward) * Vector3.up);
+        Instance = this;
+    }
+ 
+    private IEnumerator Start()
+    {
+        GameRandom = new System.Random(Seed);
+        SpawnPawns();
+        LogRound(0);
+        for (int i = 1; i <= Rounds; i++)
+        {
+            SpawnFood();
+            yield return new WaitForSeconds(1);
+            PawnChooseFood();
+            yield return new WaitForSeconds(TimeTillPawnReachesFood);
+            yield return new WaitForSeconds(1);
+            ResolveFood();
+            DeleteFood();
+            MovePawnsToOrigin();
+            yield return new WaitForSeconds(TimeTillPawnReachesFood);
+            CheckPawnStatus();
+            LogRound(i);
+            Debug.Log($"Finished round {i}");
+            yield return new WaitForSeconds(1);
+        }
+ 
+        for (int i = 0; i < RoundDatas.Count; i++)
+        {
+            Debug.Log(RoundDatas[i].ToString());
+        }
+ 
+    }
+    public void DeletePawn(PawnBehaviour pawn)
+    {
+        PawnsSpawned.Remove(pawn);
+        Destroy(pawn.gameObject);
+    }
+    private void LogRound(int roundNo)
+    {
+        RoundEndData data = new RoundEndData
+        {
+            AggressiveLeft = PawnsSpawned.FindAll(p => p.geneType == GeneType.Aggressive).Count,
+            PassiveLeft = PawnsSpawned.FindAll(p => p.geneType == GeneType.Passive).Count,
+            RoundNo = roundNo
+        };
+        RoundDatas.Add(data);
+    }
+    private void CheckPawnStatus()
+    {
+        for (int i = 0; i < DeadPawns.Count; i++)
+        {
+            DeletePawn(DeadPawns[i]);
+        }
+        DeadPawns.Clear();
+        for (int i = 0; i < PawnsSpawned.Count; i++)
+        {
+            PawnsSpawned[i].CheckStatus();
+        }
+    }
+    private void MovePawnsToOrigin()
+    {
+        for (int i = 0; i < PawnsSpawned.Count; i++)
+        {
+            PawnsSpawned[i].MoveToOriginal();
+        }
+    }
+    private void ResolveFood()
+    {
+        for (int i = 0; i < FoodSpawned.Count; i++)
+        {
+            FoodSpawned[i].ResolveFood();
+        }
+    }
+    private void PawnChooseFood()
+    {
+        List<FoodScript> foods = new List<FoodScript>(FoodSpawned);
+        foreach (PawnBehaviour p in PawnsSpawned)
+        {
+            if (foods.Count == 0)
+            {
+                DeadPawns.Add(p);
+                continue;
+            }
+            FoodScript fs = foods[GameRandom.Next(0, foods.Count)];
+            fs.Occupants.Add(p);
+            if (fs.Occupants.Count == 2)
+            {
+                foods.Remove(fs);
+            }
+ 
+            p.MoveTo(fs.Position);
+        }
+    }
+    public void SpawnPawn(GeneType gene)
+    {
+        PawnBehaviour pawn = Instantiate(PawnPrefab, RandomPointOnCircleEdge(CircleRadius), Quaternion.identity).GetComponent<PawnBehaviour>();
+        PawnsSpawned.Add(pawn);
+        pawn.SetGene(gene);
+    }
+    private void SpawnPawns()
+    {
+        for (int i = 0; i < PawnsToSpawn; i++)
+        {
+             SpawnPawn(i % 2 == 0 ? GeneType.Aggressive : GeneType.Passive);
+            //SpawnPawn(GeneType.Passive);
+            //SpawnPawn(GeneType.Aggressive);
+        }
+    }
+    private void DeleteFood()
+    {
+        foreach (FoodScript fs in FoodSpawned)
+        {
+            Destroy(fs.gameObject);
+        }
+        FoodSpawned.Clear();
+    }
+    private void SpawnFood()
+    {
+        for (int i = 0; i < FoodToSpawn; i++)
+        {
+            Vector3 tempPos = RandomPointInCircle(CircleRadius);
+            GameObject g = Instantiate(FoodPrefab, tempPos, Quaternion.identity);
+            FoodSpawned.Add(g.GetComponent<FoodScript>());
+        }
+    }
+    private Vector3 RandomPointInCircle(float radius)
+    {
+        Vector2 vector2 = Random.insideUnitCircle * radius;
+        return new Vector3(vector2.x, 0, vector2.y);
+ 
+    }
+    private Vector3 RandomPointOnCircleEdge(float radius)
+    {
+        Vector2 vector2 = Random.insideUnitCircle.normalized * radius;
+        return new Vector3(vector2.x, 0, vector2.y);
+    }
+ 
+}
+ 
+public struct RoundEndData
+{
+    public int RoundNo;
+    public int AggressiveLeft;
+    public int PassiveLeft;
+ 
+    public override string ToString()
+    {
+        return $"RoundNo:{RoundNo}\nAggresives: {AggressiveLeft},  Passives:{PassiveLeft}";
+    }
+}
