@@ -1,0 +1,54 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class FoodScript : MonoBehaviour
+{
+    public List<PawnBehaviour> Occupants;
+ 
+    public Vector3 Position => transform.position;
+ 
+    private void Start()
+    {
+        Occupants = new List<PawnBehaviour>();
+    }
+ 
+    public void ResolveFood()
+    {
+        if (Occupants.Count == 0)
+        {
+            return;
+        }
+ 
+        if(Occupants.Count == 1)
+        {
+            Occupants[0].FoodCollected += GameManager.FoodValue;
+            return;
+        }
+ 
+        if (Occupants[0].geneType == GeneType.Aggressive)
+        {
+            if (Occupants[1].geneType == GeneType.Aggressive)
+            {
+                //No food for either
+            }
+            else
+            {
+                Occupants[0].FoodCollected += GameManager.FoodValue;
+            }
+        }
+        else
+        {
+            if (Occupants[1].geneType == GeneType.Aggressive)
+            {
+                Occupants[1].FoodCollected += GameManager.FoodValue;
+            }
+            else
+            {
+                Occupants[0].FoodCollected += GameManager.FoodValue / 2;
+                Occupants[1].FoodCollected += GameManager.FoodValue / 2;
+            }
+        }
+    }
+}
+ 
