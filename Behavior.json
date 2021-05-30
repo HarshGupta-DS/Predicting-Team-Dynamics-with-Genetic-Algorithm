@@ -1,0 +1,69 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+ 
+public class PawnBehaviour : MonoBehaviour
+{
+    Vector3 originalPos;
+    public GeneType geneType;
+    public int FoodCollected;
+    void Start()
+    {
+        originalPos = transform.position;
+    }
+    public void SetGene(GeneType gene)
+    {
+        geneType = gene;
+        if (geneType == GeneType.Aggressive)
+        {
+            GetComponent<MeshRenderer>().material.color = Color.red;
+        }
+        else if (geneType == GeneType.Passive)
+        {
+            GetComponent<MeshRenderer>().material.color = Color.green;
+        }
+    }
+    public void MoveTo(Vector3 position)
+    {
+        originalPos = transform.position;
+        float radius = 2f;
+        Vector3 newPosition = (transform.position - position).normalized * radius + position;
+        // transform.position = newPosition;
+        StartCoroutine(MoveAnimation(newPosition));
+ 
+    }
+    public void MoveToOriginal()
+    {
+        StartCoroutine(MoveAnimation(originalPos));
+    }
+    private IEnumerator MoveAnimation(Vector3 position)
+    {
+        float f = 0;
+        Vector3 startPosition = transform.position;
+        while (f <= 1)
+        {
+            transform.position = Vector3.Lerp(startPosition, position, f);
+            f += Time.deltaTime / GameManager.TimeTillPawnReachesFood;
+            yield return null;
+ 
+        }
+ 
+    }
+    public void CheckStatus()
+    {
+        FoodCollected -= GameManager.LifeCost;
+        if (FoodCollected <= 0)
+        {
+            GameManager.Instance.DeletePawn(this);
+        }
+        else if (FoodCollected >= GameManager.ReproductionCost)
+        {
+            GameManager.Instance.SpawnPawn(geneType);
+        }
+    }
+}
+public enum GeneType
+{
+    Aggressive,
+    Passive
+}
